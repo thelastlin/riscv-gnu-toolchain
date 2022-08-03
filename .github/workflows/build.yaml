@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - rvv-next_zfh
   pull_request:
     branches:
       - master
