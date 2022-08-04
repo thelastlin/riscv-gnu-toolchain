@@ -48,27 +48,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os:     [ubuntu-18.04, ubuntu-20.04]
-        mode:   [newlib, linux, musl]
-        target: [rv32gc-ilp32d, rv64gc-lp64d]
-        exclude:
-          - mode: musl
-            target: rv32gc-ilp32d
+        os:     [ubuntu-22.04, ubuntu-20.04]
+        mode:   [linux]
+        target: [rv64gcv_zfh, rv64gcv]
     steps:
       - uses: actions/checkout@v2
 
       - name: initialize submodules
         run: |
-          git submodule init
-          git submodule update --recursive --progress --recommend-shallow
+          git submodule update --init --recursive --depth 1 glibc
+          git submodule update --init --recursive --depth 1 riscv-dejagnu
+          git submodule update --init --recursive --depth 1 newlib
+          git submodule update --init --recursive --depth 1 riscv-gdb
+          git submodule update --init --recursive --depth 1 riscv-binutils
+          git submodule update --init --recursive --depth 1 riscv-gcc
 
       - name: install apt dependencies
         run: sudo ./.github/setup-apt.sh
       
+      - name: disable OBSOLETE_MATH in newlib
+        run: sed -i '/__OBSOLETE_MATH/d' newlib/newlib/libm/common/math_errf.c
+
       - name: build toolchain
         run: |
-          TARGET_TUPLE=($(echo ${{ matrix.target }} | tr "-" "\n"))
-          ./configure --prefix=/opt/riscv --with-arch=${TARGET_TUPLE[0]} --with-abi=${TARGET_TUPLE[1]}
+          ./configure --prefix=/opt/riscv --with-arch=${{ matrix.target }}
           sudo make -j $(nproc) ${{ matrix.mode }}
 
       - name: tarball build
@@ -86,7 +89,7 @@ jobs:
             *)
               MODE="elf";;
           esac
-          echo ::set-output name=TOOLCHAIN_NAME::riscv$BITS-$MODE-${{ matrix.os }}-nightly
+          echo ::set-output name=TOOLCHAIN_NAME::riscv$BITS-${{ matrix.target }}-$MODE-${{ matrix.os }}-nightly
 
       - uses: actions/upload-artifact@v2
         with:
